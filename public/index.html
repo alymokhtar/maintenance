@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>صيانة السيارات - Aly Mokhtar</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00695c">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="صيانة السيارات">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "0619eb66-f607-4e31-8f60-3195fd99645c",
+        });
+        console.log("OneSignal initialized");
+
+        async function saveUserId(userId) {
+          if (!userId || !firebase || !firebase.firestore) return;
+          try {
+            await firebase.firestore().collection('users').doc('currentDevice').set({
+              oneSignalSubscriptionId: userId,
+              oneSignalId: userId,
+              oneSignalOptedIn: OneSignal.User.PushSubscription.optedIn === true,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log("✅ OneSignal User ID saved:", userId);
+          } catch(e) { console.error("Save error:", e); }
+        }
+
+        OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
+          const userId = event?.current?.id || OneSignal.User.PushSubscription.id;
+          if (userId && OneSignal.User.PushSubscription.optedIn) {
+            await saveUserId(userId);
+          }
+        });
+
+        // الطريقة الصحيحة للحصول على userId في v16
+        try {
+          if (OneSignal.Notifications.permission !== true) {
+            await OneSignal.Notifications.requestPermission();
+          }
+
+          if (OneSignal.Notifications.permission === true) {
+            await OneSignal.User.PushSubscription.optIn();
+          }
+          // انتظر قليلاً حتى يكتمل التسجيل
+          setTimeout(async () => {
+            const subscription = {
+              subscribed: OneSignal.User.PushSubscription.optedIn,
+              userId: OneSignal.User.PushSubscription.id
+            };
+            if (subscription && subscription.subscribed) {
+              const userId = subscription.userId;
+              if (userId) await saveUserId(userId);
+              else console.log("Subscription status true but no userId");
+            } else {
+              console.log("Not subscribed yet, will wait for permission");
+              OneSignal.Notifications.addEventListener('permissionChange', async (perm) => {
+                if (perm === 'granted') {
+                  const sub = { userId: OneSignal.User.PushSubscription.id };
+                  if (sub && sub.userId) await saveUserId(sub.userId);
+                }
+              });
+            }
+          }, 2000);
+        } catch(e) {
+          console.error("Error in OneSignal flow:", e);
+        }
+      });
+    </script>
+    
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #eef2f5; margin: 0; padding: 20px; direction: rtl; }
+        .container { max-width: 900px; margin: auto; background: white; border-radius: 28px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 20px 24px 32px; }
+        h1 { color: #00695c; border-right: 5px solid #26a69a; padding-right: 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 0; font-size: 20px; }
+        .car-card { background: #ffffff; border-radius: 20px; padding: 14px 20px; margin: 14px 0; border: 1px solid #e0e7ef; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: 0.2s; }
+        .car-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .car-info { cursor: pointer; flex: 1; }
+        .car-name { font-weight: bold; font-size: 1.2rem; color: #1e2a3e; }
+        .car-plate { color: #2c7a64; font-size: 0.9rem; margin-right: 8px; background: #e6f7ec; padding: 2px 8px; border-radius: 30px; }
+        .car-actions button { background: transparent; border: none; cursor: pointer; font-size: 0.85rem; margin: 0 4px; padding: 6px 12px; border-radius: 30px; transition: 0.2s; }
+        .edit-car { color: #0284c7; background: #e0f2fe; }
+        .delete-car { color: #b91c1c; background: #fee2e2; }
+        .status { margin-top: 10px; font-size: 0.85rem; font-weight: bold; padding: 4px 12px; border-radius: 30px; display: inline-block; }
+        .status-green { background: #c8e6e0; color: #00695c; }
+        .status-red { background: #ffebee; color: #c62828; }
+        .next-date { font-size: 0.8rem; color: #4b5563; margin-top: 6px; }
+        .date-card, .detail-card { background: #f9fafc; border-radius: 20px; padding: 12px 18px; margin: 10px 0; border: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; }
+        .date-card:hover { background: #e6f7ec; transform: translateX(-5px); }
+        button { background: #00695c; color: white; border: none; padding: 8px 18px; border-radius: 30px; cursor: pointer; margin: 5px; font-weight: 500; }
+        button.secondary { background: #64748b; }
+        button.outline { background: white; color: #00695c; border: 1px solid #00695c; }
+        .fab { position: fixed; bottom: 25px; left: 25px; background: #00695c; width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,0.2); transition: 0.2s; z-index: 100; }
+        .fab:hover { transform: scale(1.05); background: #004d40; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; width: 95%; max-width: 700px; border-radius: 32px; padding: 24px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 30px rgba(0,0,0,0.2); }
+        input, textarea { width: 100%; padding: 10px 14px; margin: 8px 0; border-radius: 40px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
+        .item-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 12px 0; flex-wrap: wrap; background: #f8fafc; padding: 8px 12px; border-radius: 50px; }
+        .item-label { flex: 2; font-weight: 500; }
+        .item-price { flex: 1; min-width: 110px; }
+        .item-price input { margin: 0; width: 100%; }
+        .total { font-weight: bold; font-size: 1.3rem; margin-top: 20px; text-align: left; border-top: 2px solid #cbd5e1; padding-top: 12px; }
+        .empty-message { text-align: center; color: #888; padding: 40px; }
+        footer { text-align: center; font-size: 0.7rem; margin-top: 30px; color: #aaa; }
+        .invoice-wrapper { direction: rtl; font-family: 'Tahoma', sans-serif; }
+        .invoice-card { background: white; padding: 25px; border-radius: 16px; border: 1px solid #d1d5db; max-width: 800px; margin: auto; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #00695c; padding-bottom: 12px; margin-bottom: 20px; }
+        .invoice-title { font-size: 1.8rem; color: #00695c; font-weight: bold; }
+        .invoice-details { margin-bottom: 20px; line-height: 1.6; }
+        .invoice-items { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .invoice-items th, .invoice-items td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
+        .invoice-items th { background: #e6f7ec; color: #00695c; }
+        .total-invoice { text-align: left; font-size: 1.2rem; font-weight: bold; margin-top: 15px; }
+        @media print { body * { visibility: hidden; } .invoice-card, .invoice-card * { visibility: visible; } .invoice-card { position: absolute; top: 0; right: 0; width: 100%; } .no-print { display: none; } }
+        .install-banner { background: #00695c; color: white; padding: 10px; text-align: center; border-radius: 40px; margin-bottom: 15px; display: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<div class="fab" id="fabBtn">➕</div>
+<div id="installBanner" class="install-banner">📲 تثبيت التطبيق على هاتفك</div>
+
+<script>
+    // ========== PWA installation ==========
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('installBanner');
+        banner.style.display = 'block';
+        banner.onclick = async () => {
+            banner.style.display = 'none';
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+        };
+    });
+    
+    // ========== Firebase Config ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyAwumtf7490H80FTXYT04vVbmhpiKeoM",
+        authDomain: "maintenance-7fecf.firebaseapp.com",
+        projectId: "maintenance-7fecf",
+        storageBucket: "maintenance-7fecf.firebasestorage.app",
+        messagingSenderId: "140300176736",
+        appId: "1:140300176736:web:a3aeed0b752c90ec40a205"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let currentScreen = 'cars';
+    let selectedCarId = null;
+    let datesCache = {};
+
+    const app = document.getElementById('app');
+    const fab = document.getElementById('fabBtn');
+
+    function formatDate(d) {
+        let dd = d.getDate().toString().padStart(2,'0');
+        let mm = (d.getMonth()+1).toString().padStart(2,'0');
+        let yyyy = d.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+    }
+
+    function parseDate(dateStr) {
+        let parts = dateStr.split('-');
+        return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+    }
+
+    function getNextMaintenanceDate(lastDate) {
+        let next = new Date(lastDate);
+        next.setDate(next.getDate() + 35);
+        return next;
+    }
+
+    function escapeHtml(str) {
+        if(!str) return '';
+        return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
+    }
+
+    async function getLastMaintenanceAndNext(carId) {
+        const snap = await db.collection('maintenances').where('carId', '==', carId).get();
+        let lastDate = null;
+        snap.forEach(doc => {
+            const d = parseDate(doc.data().date);
+            if (!lastDate || d > lastDate) lastDate = d;
+        });
+        if (!lastDate) return { lastDate: null, nextDate: null, need: false };
+        const nextDate = getNextMaintenanceDate(lastDate);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const need = today >= nextDate;
+        return { lastDate, nextDate, need };
+    }
+
+    async function showCars() {
+        currentScreen = 'cars';
+        fab.style.display = 'none';
+        app.innerHTML = `<h1>🚗 سياراتي <button id="addCarBtn" class="outline">➕ سيارة جديدة</button></h1><div id="list">جاري التحميل...</div><footer>اختر سيارة لعرض صيانتها</footer>`;
+        const listDiv = document.getElementById('list');
+        try {
+            const snapshot = await db.collection('cars').orderBy('ownerName').get();
+            if (snapshot.empty) {
+                listDiv.innerHTML = '<div class="empty-message">📭 لا توجد سيارات، أضف سيارة جديدة</div>';
+                return;
+            }
+            let carsWithStatus = [];
+            for (const doc of snapshot.docs) {
+                const car = doc.data();
+                const { lastDate, nextDate, need } = await getLastMaintenanceAndNext(doc.id);
+                carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate });
+            }
+            carsWithStatus.sort((a,b) => {
+                if (a.need && !b.need) return -1;
+                if (!a.need && b.need) return 1;
+                return a.ownerName.localeCompare(b.ownerName);
+            });
+            let html = '';
+            for (const car of carsWithStatus) {
+                const statusText = car.need ? "تحتاج صيانة" : (car.lastDate ? "لا تحتاج صيانة" : "لا توجد صيانة");
+                const statusClass = car.need ? "status-red" : "status-green";
+                const nextDateText = car.nextDate ? `📅 الصيانة القادمة: ${formatDate(car.nextDate)}` : "📅 لا توجد صيانة مسجلة";
+                html += `
+                    <div class="car-card" data-id="${car.id}">
+                        <div class="car-header">
+                            <div class="car-info" data-id="${car.id}">
+                                <span class="car-name">${escapeHtml(car.ownerName)} <span class="car-plate">${escapeHtml(car.plate)}</span></span>
+                            </div>
+                            <div class="car-actions">
+                                <button class="edit-car" data-id="${car.id}"> تعديل</button>
+                                <button class="delete-car" data-id="${car.id}"> حذف</button>
+                            </div>
+                        </div>
+                        <div><span class="status ${statusClass}">${statusText}</span></div>
+                        <div class="next-date">${nextDateText}</div>
+                    </div>
+                `;
+            }
+            listDiv.innerHTML = html;
+            document.querySelectorAll('.car-info').forEach(el => {
+                el.addEventListener('click', () => showDates(el.dataset.id));
+            });
+            document.querySelectorAll('.edit-car').forEach(btn => {
+                btn.addEventListener('click', (e) => { e.stopPropagation(); openEditCarModal(btn.dataset.id); });
+            });
+            document.querySelectorAll('.delete-car').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (confirm("⚠️ حذف السيارة سيحذف جميع صياناتها. هل أنت متأكد؟")) {
+                        const carId = btn.dataset.id;
+                        const maints = await db.collection('maintenances').where('carId', '==', carId).get();
+                        const batch = db.batch();
+                        maints.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                        await db.collection('cars').doc(carId).delete();
+                        delete datesCache[carId];
+                        showCars();
+                    }
+                });
+            });
+            document.getElementById('addCarBtn').onclick = showAddCarModal;
+        } catch(e) { console.error(e); listDiv.innerHTML = '<div class="empty-message">❌ خطأ في الاتصال بقاعدة البيانات</div>'; }
+    }
+
+    function showAddCarModal() {
+        const modalHtml = `<div class="modal" id="carModal"><div class="modal-content"><h3>➕ إضافة سيارة</h3><label>اسم المالك</label><input id="ownerName" placeholder="مثال: Dro Dadi"><label>رقم اللوحة</label><input id="plate" placeholder="مثال: 3909AC06"><div style="display:flex; gap:10px; margin-top:20px;"><button id="saveCar">حفظ</button><button id="cancelCar" class="secondary">إلغاء</button></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.getElementById('carModal');
+        modal.style.display = 'flex';
+        document.getElementById('saveCar').onclick = async () => {
+            const owner = document.getElementById('ownerName').value.trim();
+            const plate = document.getElementById('plate').value.trim();
+            if(!owner || !plate) { alert("الرجاء إدخال جميع البيانات"); return; }
+            await db.collection('cars').add({ ownerName: owner, plate: plate, createdAt: new Date() });
+            modal.remove();
+            showCars();
+        };
+        document.getElementById('cancelCar').onclick = () => modal.remove();
+    }
+
+    async function openEditCarModal(carId) {
+        const carDoc = await db.collection('cars').doc(carId).get();
+        const car = carDoc.data();
+        const modalHtml = `<div class="modal" id="editCarModal"><div class="modal-content"><h3>✏️ تعديل السيارة</h3><label>اسم المالك</label><input id="ownerName" value="${escapeHtml(car.ownerName)}"><label>رقم اللوحة</label><input id="plate" value="${escapeHtml(car.plate)}"><div style="display:flex; gap:10px; margin-top:20px;"><button id="updateCar">تحديث</button><button id="cancelEdit" class="secondary">إلغاء</button></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.getElementById('editCarModal');
+        modal.style.display = 'flex';
+        document.getElementById('updateCar').onclick = async () => {
+            const owner = document.getElementById('ownerName').value.trim();
+            const plate = document.getElementById('plate').value.trim();
+            if(!owner || !plate) { alert("الرجاء إدخال البيانات"); return; }
+            await db.collection('cars').doc(carId).update({ ownerName: owner, plate: plate });
+            modal.remove();
+            showCars();
+        };
+        document.getElementById('cancelEdit').onclick = () => modal.remove();
+    }
+
+    async function showDates(carId, useCache = false) {
+        selectedCarId = carId;
+        currentScreen = 'dates';
+        fab.style.display = 'flex';
+        const carDoc = await db.collection('cars').doc(carId).get();
+        const car = carDoc.data();
+        app.innerHTML = `<h1>📅 صيانات: ${escapeHtml(car.ownerName)} (${escapeHtml(car.plate)}) <button id="backBtn" class="secondary">🔙 رجوع</button></h1><div id="datesList">جاري التحميل...</div><footer>اختر تاريخاً للتفاصيل</footer>`;
+        const listDiv = document.getElementById('datesList');
+        if (useCache && datesCache[carId]) {
+            displayMaintenanceList(datesCache[carId], listDiv);
+            document.getElementById('backBtn').onclick = () => showCars();
+            return;
+        }
+        try {
+            const snapshot = await db.collection('maintenances').where('carId', '==', carId).get();
+            let items = [];
+            snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+            items.sort((a,b) => b.date.localeCompare(a.date));
+            datesCache[carId] = items;
+            displayMaintenanceList(items, listDiv);
+            document.getElementById('backBtn').onclick = () => showCars();
+        } catch(e) { listDiv.innerHTML = '<div class="empty-message">خطأ في التحميل</div>'; }
+    }
+    
+    function displayMaintenanceList(items, listDiv) {
+        if(items.length === 0) {
+            listDiv.innerHTML = '<div class="empty-message">📭 لا توجد صيانات. اضغط + لإضافة صيانة جديدة.</div>';
+        } else {
+            let html = '';
+            items.forEach(m => { html += `<div class="date-card" data-mid="${m.id}"><div class="date-item">📆 ${escapeHtml(m.date)}</div></div>`; });
+            listDiv.innerHTML = html;
+            document.querySelectorAll('.date-card').forEach(card => {
+                card.addEventListener('click', () => showMaintenanceDetail(card.dataset.mid));
+            });
+        }
+    }
+    
+    async function showMaintenanceDetail(mid) {
+        currentScreen = 'detail';
+        fab.style.display = 'none';
+        const doc = await db.collection('maintenances').doc(mid).get();
+        if(!doc.exists) return;
+        const m = doc.data();
+        const carDoc = await db.collection('cars').doc(m.carId).get();
+        const carName = carDoc.data()?.ownerName || '';
+        const plate = carDoc.data()?.plate || '';
+        
+        const currentDate = parseDate(m.date);
+        const nextDate = getNextMaintenanceDate(currentDate);
+        const nextDateStr = nextDate ? formatDate(nextDate) : 'غير محدد';
+        
+        const itemsList = [
+            { label: "تغيير زيت", field: "oilChange", priceField: "oilChangePrice" },
+            { label: "فلتر زيت", field: "oilFilter", priceField: "oilFilterPrice" },
+            { label: "فلتر جاز", field: "fuelFilter", priceField: "fuelFilterPrice" },
+            { label: "فلتر هواء", field: "airFilter", priceField: "airFilterPrice" },
+            { label: "فلتر كابينة", field: "cabinFilter", priceField: "cabinFilterPrice" }
+        ];
+        let doneItems = itemsList.filter(i => m[i.field] === true).map(i => ({ label: i.label, price: m[i.priceField] || 0 }));
+        const total = m.totalCost || 0;
+        
+        app.innerHTML = `
+            <h1>🔧 تفاصيل الصيانة <button id="backDatesBtn" class="secondary">🔙 رجوع</button></h1>
+            <div class="detail-card" id="singleInvoiceContent">
+                <div><strong>📅 التاريخ:</strong> ${escapeHtml(m.date)}</div>
+                <div><strong>📅 الصيانة القادمة:</strong> ${nextDateStr}</div>
+                <div><strong>🔢 KM:</strong> ${m.km || '—'}</div>
+                <div><strong>⏩ KM التالي:</strong> ${m.nextKm || '—'}</div>
+                <div><strong>✅ العناصر المنفذة:</strong></div>
+                <ul>${doneItems.map(it => `<li>${escapeHtml(it.label)} : ${it.price} MRU</li>`).join('')}</ul>
+                <div><strong>💰 الإجمالي:</strong> ${total} MRU</div>
+                ${m.notes ? `<div><strong>📝 ملاحظات:</strong> ${escapeHtml(m.notes)}</div>` : ''}
+            </div>
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="editBtn">✏️ تعديل</button>
+                <button id="deleteBtn" class="secondary">🗑️ حذف</button>
+                <button id="pdfSingleBtn" class="outline">📄 فاتورة PDF</button>
+                <button id="pdfAllBtn" class="outline">📚 جميع الفواتير</button>
+            </div>
+        `;
+        document.getElementById('backDatesBtn').onclick = () => showDates(selectedCarId, true);
+        document.getElementById('editBtn').onclick = () => openMaintenanceModal(m.carId, { ...m, id: mid });
+        document.getElementById('deleteBtn').onclick = async () => {
+            if(confirm("حذف هذه الصيانة؟")) { 
+                await db.collection('maintenances').doc(mid).delete(); 
+                delete datesCache[selectedCarId];
+                showDates(selectedCarId); 
+            }
+        };
+        document.getElementById('pdfSingleBtn').onclick = () => generateSingleInvoice(m, carName, plate, nextDateStr);
+        document.getElementById('pdfAllBtn').onclick = () => generateAllInvoices(selectedCarId, carName, plate);
+    }
+
+    function generateSingleInvoice(m, carName, plate, nextDateStr) {
+        const itemsList = [
+            { label: "تغيير زيت", field: "oilChange", priceField: "oilChangePrice" },
+            { label: "فلتر زيت", field: "oilFilter", priceField: "oilFilterPrice" },
+            { label: "فلتر جاز", field: "fuelFilter", priceField: "fuelFilterPrice" },
+            { label: "فلتر هواء", field: "airFilter", priceField: "airFilterPrice" },
+            { label: "فلتر كابينة", field: "cabinFilter", priceField: "cabinFilterPrice" }
+        ];
+        let doneItems = itemsList.filter(i => m[i.field] === true).map(i => ({ label: i.label, price: m[i.priceField] || 0 }));
+        const total = m.totalCost || 0;
+        const invoiceHtml = `
+            <div class="invoice-wrapper">
+                <div class="invoice-card">
+                    <div class="invoice-header"><div class="invoice-title">فاتورة صيانة</div><div></div></div>
+                    <div class="invoice-details">
+                        <div><strong>السيارة:</strong> ${escapeHtml(carName)} (${escapeHtml(plate)})</div>
+                        <div><strong>تاريخ الصيانة:</strong> ${escapeHtml(m.date)}</div>
+                        <div><strong>تاريخ الصيانة القادمة:</strong> ${nextDateStr}</div>
+                        <div><strong>الكيلومترات:</strong> ${m.km || '—'} كم</div>
+                        <div><strong>الكيلومترات القادمة:</strong> ${m.nextKm || '—'} كم</div>
+                    </div>
+                    <table class="invoice-items">
+                        <thead><tr><th>العملية</th><th>السعر (MRU)</th></table></thead>
+                        <tbody>${doneItems.map(it => `<tr><td style="text-align:center">${escapeHtml(it.label)}</td><td style="text-align:center">${it.price} MRU</td>`).join('')}
+                        <tr style="font-weight:bold; background:#f1f5f9;"><td style="text-align:center">الإجمالي</td><td style="text-align:center">${total} MRU</td></tr>
+                        </tbody>
+                    </table>
+                    ${m.notes ? `<div><strong>ملاحظات:</strong> ${escapeHtml(m.notes)}</div>` : ''}
+                    <div style="margin-top:20px; text-align:center;">By Aly Mokhtar</div>
+                </div>
+            </div>
+        `;
+        const element = document.createElement('div');
+        element.innerHTML = invoiceHtml;
+        const opt = { margin: 0.5, filename: `invoice_${m.date}_${carName}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    async function generateAllInvoices(carId, carName, plate) {
+        const snapshot = await db.collection('maintenances').where('carId', '==', carId).get();
+        let allMaintenances = [];
+        snapshot.forEach(doc => allMaintenances.push({ id: doc.id, ...doc.data() }));
+        if(allMaintenances.length === 0) { alert("لا توجد صيانات لهذه السيارة"); return; }
+        allMaintenances.sort((a,b) => b.date.localeCompare(a.date));
+        let allHtml = `<div class="invoice-wrapper"><div class="invoice-card"><div class="invoice-header"><div class="invoice-title">تقرير جميع صيانات السيارة</div><div>${escapeHtml(carName)} (${escapeHtml(plate)})</div></div>`;
+        let grandTotal = 0;
+        for (const m of allMaintenances) {
+            const currentDate = parseDate(m.date);
+            const nextDate = getNextMaintenanceDate(currentDate);
+            const nextDateStr = nextDate ? formatDate(nextDate) : 'غير محدد';
+            const itemsList = [
+                { label: "تغيير زيت", field: "oilChange", priceField: "oilChangePrice" },
+                { label: "فلتر زيت", field: "oilFilter", priceField: "oilFilterPrice" },
+                { label: "فلتر جاز", field: "fuelFilter", priceField: "fuelFilterPrice" },
+                { label: "فلتر هواء", field: "airFilter", priceField: "airFilterPrice" },
+                { label: "فلتر كابينة", field: "cabinFilter", priceField: "cabinFilterPrice" }
+            ];
+            let doneItems = itemsList.filter(i => m[i.field] === true).map(i => ({ label: i.label, price: m[i.priceField] || 0 }));
+            const total = m.totalCost || 0;
+            grandTotal += total;
+            allHtml += `
+                <div style="margin-top:30px; border-top:2px solid #ccc; padding-top:20px;">
+                    <div class="invoice-details">
+                        <div><strong>السيارة:</strong> ${escapeHtml(carName)} (${escapeHtml(plate)})</div>
+                        <div><strong>تاريخ الصيانة:</strong> ${escapeHtml(m.date)}</div>
+                        <div><strong>تاريخ الصيانة القادمة:</strong> ${nextDateStr}</div>
+                        <div><strong>الكيلومترات:</strong> ${m.km || '—'} كم</div>
+                        <div><strong>الكيلومترات القادمة:</strong> ${m.nextKm || '—'} كم</div>
+                    </div>
+                    <table class="invoice-items">
+                        <thead><tr><th>العملية</th><th>السعر (MRU)</th></tr></thead>
+                        <tbody>${doneItems.map(it => `<tr><td style="text-align:center">${escapeHtml(it.label)}</td><td style="text-align:center">${it.price} MRU</td>`).join('')}
+                        <tr style="font-weight:bold; background:#f1f5f9;"><td style="text-align:center">الإجمالي</td><td style="text-align:center">${total} MRU</td></tr>
+                        </tbody>
+                    </table>
+                    ${m.notes ? `<div><strong>ملاحظات:</strong> ${escapeHtml(m.notes)}</div>` : ''}
+                </div>
+            `;
+        }
+        allHtml += `<div class="total-invoice">الإجمالي الكلي لجميع الصيانات: ${grandTotal} MRU</div><div style="margin-top:20px; text-align:center;">By Aly Mokhtar</div></div></div>`;
+        const element = document.createElement('div');
+        element.innerHTML = allHtml;
+        const opt = { margin: 0.5, filename: `all_maintenances_${carName}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    function openMaintenanceModal(carId, existing = null) {
+        const isEdit = !!existing;
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal';
+        modalDiv.style.display = 'flex';
+        const today = formatDate(new Date());
+        const defaultChecks = {
+            oilChange: false, oilChangePrice: 0,
+            oilFilter: false, oilFilterPrice: 0,
+            fuelFilter: false, fuelFilterPrice: 0,
+            airFilter: false, airFilterPrice: 0,
+            cabinFilter: false, cabinFilterPrice: 0
+        };
+        const data = existing ? existing : defaultChecks;
+        modalDiv.innerHTML = `
+            <div class="modal-content">
+                <h3>${isEdit ? '✏️ تعديل الصيانة' : '➕ صيانة جديدة'}</h3>
+                <label>التاريخ (DD-MM-YYYY)</label><input id="mDate" value="${isEdit ? existing.date : today}">
+                <label>الكيلومترات (KM)</label><input id="km" value="${isEdit ? existing.km || '' : ''}">
+                <label>KM التالي</label><input id="nextKm" value="${isEdit ? existing.nextKm || '' : ''}">
+                <label>العناصر والأسعار (MRU):</label>
+                <div id="itemsContainer"></div>
+                <div class="total" id="totalDisplay">الإجمالي: 0 MRU</div>
+                <label>ملاحظات</label><textarea id="notes" rows="2">${isEdit ? existing.notes || '' : ''}</textarea>
+                <div style="display:flex; gap:10px; margin-top:20px;"><button id="saveMaint">حفظ</button><button id="cancelMaint" class="secondary">إلغاء</button></div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        const items = [
+            { id: 'oilChange', label: 'تغيير زيت', priceId: 'oilChangePrice', defaultChecked: data.oilChange, defaultPrice: data.oilChangePrice || 0 },
+            { id: 'oilFilter', label: 'فلتر زيت', priceId: 'oilFilterPrice', defaultChecked: data.oilFilter, defaultPrice: data.oilFilterPrice || 0 },
+            { id: 'fuelFilter', label: 'فلتر جاز', priceId: 'fuelFilterPrice', defaultChecked: data.fuelFilter, defaultPrice: data.fuelFilterPrice || 0 },
+            { id: 'airFilter', label: 'فلتر هواء', priceId: 'airFilterPrice', defaultChecked: data.airFilter, defaultPrice: data.airFilterPrice || 0 },
+            { id: 'cabinFilter', label: 'فلتر كابينة', priceId: 'cabinFilterPrice', defaultChecked: data.cabinFilter, defaultPrice: data.cabinFilterPrice || 0 }
+        ];
+        const container = modalDiv.querySelector('#itemsContainer');
+        function renderItems() {
+            container.innerHTML = '';
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `<label class="item-label"><input type="checkbox" id="${item.id}" ${item.defaultChecked ? 'checked' : ''}> ${item.label}</label>
+                    <div class="item-price"><input type="number" id="${item.priceId}" value="${item.defaultPrice}" placeholder="السعر MRU" ${item.defaultChecked ? '' : 'disabled'}></div>`;
+                container.appendChild(row);
+                const chkBox = row.querySelector(`#${item.id}`);
+                const priceInp = row.querySelector(`#${item.priceId}`);
+                chkBox.addEventListener('change', () => {
+                    priceInp.disabled = !chkBox.checked;
+                    if (!chkBox.checked) priceInp.value = 0;
+                    updateTotal();
+                });
+                priceInp.addEventListener('input', updateTotal);
+            });
+            updateTotal();
+        }
+        function updateTotal() {
+            let total = 0;
+            items.forEach(item => {
+                const chk = modalDiv.querySelector(`#${item.id}`).checked;
+                if (chk) {
+                    const price = parseFloat(modalDiv.querySelector(`#${item.priceId}`).value) || 0;
+                    total += price;
+                }
+            });
+            modalDiv.querySelector('#totalDisplay').innerText = `الإجمالي: ${total} MRU`;
+        }
+        renderItems();
+        const saveBtn = modalDiv.querySelector('#saveMaint');
+        const cancelBtn = modalDiv.querySelector('#cancelMaint');
+        saveBtn.onclick = async () => {
+            const date = document.getElementById('mDate').value.trim();
+            if(!date.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) { alert("صيغة التاريخ DD-MM-YYYY"); return; }
+            let hasError = false;
+            items.forEach(item => {
+                const chk = modalDiv.querySelector(`#${item.id}`).checked;
+                if (chk) {
+                    const price = modalDiv.querySelector(`#${item.priceId}`).value.trim();
+                    if (price === "" || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+                        alert(`الرجاء إدخال سعر صحيح (أكبر من 0) لعنصر "${item.label}"`);
+                        hasError = true;
+                    }
+                }
+            });
+            if (hasError) return;
+            const maintenanceData = {
+                carId: carId,
+                date: date,
+                km: document.getElementById('km').value ? Number(document.getElementById('km').value) : null,
+                nextKm: document.getElementById('nextKm').value ? Number(document.getElementById('nextKm').value) : null,
+                notes: document.getElementById('notes').value.trim(),
+                oilChange: modalDiv.querySelector('#oilChange').checked,
+                oilChangePrice: modalDiv.querySelector('#oilChange').checked ? (Number(modalDiv.querySelector('#oilChangePrice').value) || 0) : 0,
+                oilFilter: modalDiv.querySelector('#oilFilter').checked,
+                oilFilterPrice: modalDiv.querySelector('#oilFilter').checked ? (Number(modalDiv.querySelector('#oilFilterPrice').value) || 0) : 0,
+                fuelFilter: modalDiv.querySelector('#fuelFilter').checked,
+                fuelFilterPrice: modalDiv.querySelector('#fuelFilter').checked ? (Number(modalDiv.querySelector('#fuelFilterPrice').value) || 0) : 0,
+                airFilter: modalDiv.querySelector('#airFilter').checked,
+                airFilterPrice: modalDiv.querySelector('#airFilter').checked ? (Number(modalDiv.querySelector('#airFilterPrice').value) || 0) : 0,
+                cabinFilter: modalDiv.querySelector('#cabinFilter').checked,
+                cabinFilterPrice: modalDiv.querySelector('#cabinFilter').checked ? (Number(modalDiv.querySelector('#cabinFilterPrice').value) || 0) : 0,
+                totalCost: 0,
+                updatedAt: new Date()
+            };
+            let total = 0;
+            if (maintenanceData.oilChange) total += maintenanceData.oilChangePrice;
+            if (maintenanceData.oilFilter) total += maintenanceData.oilFilterPrice;
+            if (maintenanceData.fuelFilter) total += maintenanceData.fuelFilterPrice;
+            if (maintenanceData.airFilter) total += maintenanceData.airFilterPrice;
+            if (maintenanceData.cabinFilter) total += maintenanceData.cabinFilterPrice;
+            maintenanceData.totalCost = total;
+            if(isEdit) {
+                await db.collection('maintenances').doc(existing.id).update(maintenanceData);
+                delete datesCache[carId];
+                modalDiv.remove();
+                showMaintenanceDetail(existing.id);
+            } else {
+                maintenanceData.createdAt = new Date();
+                await db.collection('maintenances').add(maintenanceData);
+                delete datesCache[carId];
+                modalDiv.remove();
+                showDates(carId);
+            }
+        };
+        cancelBtn.onclick = () => modalDiv.remove();
+    }
+
+    fab.onclick = () => { if(currentScreen === 'dates' && selectedCarId) openMaintenanceModal(selectedCarId, null); };
+    window.onload = showCars;
+</script>
+</body>
+</html>
