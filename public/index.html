@@ -678,7 +678,19 @@
                 showMaintenanceDetail(existing.id);
             } else {
                 maintenanceData.createdAt = new Date();
-                await db.collection('maintenances').add(maintenanceData);
+                const maintenanceRef = await db.collection('maintenances').add(maintenanceData);
+                const carDoc = await db.collection('cars').doc(carId).get();
+                const car = carDoc.data() || {};
+                await db.collection('maintenanceNotifications').add({
+                    type: 'maintenance_created',
+                    status: 'pending',
+                    carId: carId,
+                    maintenanceId: maintenanceRef.id,
+                    ownerName: car.ownerName || '',
+                    plate: car.plate || '',
+                    maintenanceDate: date,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
                 delete datesCache[carId];
                 modalDiv.remove();
                 showDates(carId);
