@@ -39,6 +39,56 @@
           } catch(e) { console.error("Save error:", e); }
         }
 
+        function isIosDevice() {
+          return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function isStandaloneApp() {
+          return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        async function syncPushSubscription() {
+          const userId = OneSignal.User.PushSubscription.id;
+          const optedIn = OneSignal.User.PushSubscription.optedIn === true;
+          if (userId && optedIn) {
+            await saveUserId(userId);
+            return true;
+          }
+          console.log("No active OneSignal subscription yet");
+          return false;
+        }
+
+        async function enablePushNotifications() {
+          try {
+            if (OneSignal.Notifications.permission !== true) {
+              await OneSignal.Notifications.requestPermission();
+            }
+
+            if (OneSignal.Notifications.permission === true) {
+              await OneSignal.User.PushSubscription.optIn();
+              await syncPushSubscription();
+              const banner = document.getElementById('notificationBanner');
+              if (banner) banner.style.display = 'none';
+            }
+          } catch(e) {
+            console.error("Error enabling push notifications:", e);
+          }
+        }
+
+        function setupNotificationButton() {
+          const banner = document.getElementById('notificationBanner');
+          const button = document.getElementById('enableNotificationsBtn');
+          if (!banner || !button) return;
+
+          if (isIosDevice() && isStandaloneApp() && OneSignal.Notifications.permission !== true) {
+            banner.style.display = 'block';
+          }
+
+          button.onclick = enablePushNotifications;
+        }
+
+        window.enablePushNotifications = enablePushNotifications;
+
         OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
           const userId = event?.current?.id || OneSignal.User.PushSubscription.id;
           if (userId && OneSignal.User.PushSubscription.optedIn) {
@@ -48,7 +98,14 @@
 
         // الطريقة الصحيحة للحصول على userId في v16
         try {
+          setupNotificationButton();
+          if (isIosDevice() && !isStandaloneApp()) {
+            console.log("Open the installed Home Screen app to enable iPhone notifications.");
+            return;
+          }
+
           if (OneSignal.Notifications.permission !== true) {
+            if (isIosDevice()) return;
             await OneSignal.Notifications.requestPermission();
           }
 
@@ -126,12 +183,18 @@
         .total-invoice { text-align: left; font-size: 1.2rem; font-weight: bold; margin-top: 15px; }
         @media print { body * { visibility: hidden; } .invoice-card, .invoice-card * { visibility: visible; } .invoice-card { position: absolute; top: 0; right: 0; width: 100%; } .no-print { display: none; } }
         .install-banner { background: #00695c; color: white; padding: 10px; text-align: center; border-radius: 40px; margin-bottom: 15px; display: none; cursor: pointer; }
+        .notification-banner { display: none; position: fixed; right: 16px; left: 16px; bottom: 92px; z-index: 2000; text-align: center; }
+        .notification-banner button { width: 100%; max-width: 360px; background: #0f766e; box-shadow: 0 8px 18px rgba(0,0,0,0.18); }
     </style>
 </head>
 <body>
 <div class="container" id="app"></div>
 <div class="fab" id="fabBtn">➕</div>
 <div id="installBanner" class="install-banner">📲 تثبيت التطبيق على هاتفك</div>
+
+<div id="notificationBanner" class="notification-banner">
+    <button id="enableNotificationsBtn">تفعيل إشعارات الهاتف</button>
+</div>
 
 <script>
     // ========== PWA installation ==========
