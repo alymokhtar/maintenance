@@ -84,7 +84,29 @@ async function getCarsNeedingMaintenance(db) {
   return carsNeeding;
 }
 
-async function sendOneSignalNotification(subscriptionId, carsList) {
+async function getActiveSubscriptionIds(db) {
+  const snapshot = await db.collection("notificationSubscriptions").get();
+  const subscriptionIds = new Set();
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    const subscriptionId = data.oneSignalSubscriptionId || data.oneSignalId || doc.id;
+    if (subscriptionId && data.oneSignalOptedIn !== false) {
+      subscriptionIds.add(subscriptionId);
+    }
+  }
+
+  if (!subscriptionIds.size) {
+    const userDoc = await db.collection("users").doc("currentDevice").get();
+    const userData = userDoc.data() || {};
+    const subscriptionId = userData.oneSignalSubscriptionId || userData.oneSignalId;
+    if (subscriptionId) subscriptionIds.add(subscriptionId);
+  }
+
+  return [...subscriptionIds];
+}
+
+async function sendOneSignalNotification(subscriptionIds, carsList) {
   const carNames = carsList.map((car) => car.name).join(", ");
   const response = await fetch("https://api.onesignal.com/notifications", {
     method: "POST",
@@ -95,7 +117,7 @@ async function sendOneSignalNotification(subscriptionId, carsList) {
     body: JSON.stringify({
       app_id: ONE_SIGNAL_APP_ID,
       target_channel: "push",
-      include_subscription_ids: [subscriptionId],
+      include_subscription_ids: subscriptionIds,
       headings: {
         en: "Daily maintenance reminder",
         ar: "تنبيه صيانة يومي",
@@ -124,12 +146,10 @@ async function main() {
   });
 
   const db = admin.firestore();
-  const userDoc = await db.collection("users").doc("currentDevice").get();
-  const userData = userDoc.data() || {};
-  const subscriptionId = userData.oneSignalSubscriptionId || userData.oneSignalId;
+  const subscriptionIds = await getActiveSubscriptionIds(db);
 
-  if (!subscriptionId) {
-    console.log("No OneSignal subscription ID saved in users/currentDevice.");
+  if (!subscriptionIds.length) {
+    console.log("No OneSignal subscription IDs saved.");
     return;
   }
 
@@ -139,9 +159,9 @@ async function main() {
     return;
   }
 
-  const result = await sendOneSignalNotification(subscriptionId, carsNeeding);
-  console.log(`Sent reminder for ${carsNeeding.length} car(s).`);
-  console.log(JSON.stringify({ carsNeeding, oneSignalResponse: result }, null, 2));
+  const result = await sendOneSignalNotification(subscriptionIds, carsNeeding);
+  console.log(`Sent reminder for ${carsNeeding.length} car(s) to ${subscriptionIds.length} device(s).`);
+  console.log(JSON.stringify({ carsNeeding, subscriptionIds, oneSignalResponse: result }, null, 2));
 }
 
 main().catch((error) => {

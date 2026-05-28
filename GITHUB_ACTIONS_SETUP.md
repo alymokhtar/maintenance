@@ -94,8 +94,17 @@ cron: "0 9 * * *"
 
 ## 7. ملاحظة مهمة
 
+الإشعار سيُرسل لكل الأجهزة المسجلة في:
+
+```text
+notificationSubscriptions
+```
+
+كل iPhone أو Android أو كمبيوتر يفتح التطبيق ويسمح بالإشعارات سيضيف اشتراكًا مستقلًا.
+
 الإشعار سيُرسل فقط إذا:
 
 - يوجد `oneSignalSubscriptionId` في `users/currentDevice`.
+- أو توجد اشتراكات في `notificationSubscriptions`.
 - توجد سيارة آخر صيانة لها مر عليها 35 يومًا أو أكثر.
 - OneSignal يقبل إرسال الإشعار لهذا الاشتراك.

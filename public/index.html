@@ -29,13 +29,23 @@
         async function saveUserId(userId) {
           if (!userId || !firebase || !firebase.firestore) return;
           try {
-            await firebase.firestore().collection('users').doc('currentDevice').set({
+            const subscriptionData = {
               oneSignalSubscriptionId: userId,
               oneSignalId: userId,
               oneSignalOptedIn: OneSignal.User.PushSubscription.optedIn === true,
+              userAgent: navigator.userAgent,
+              platform: navigator.platform || '',
+              standalone: isStandaloneApp(),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            await firebase.firestore().collection('notificationSubscriptions').doc(userId).set({
+              ...subscriptionData,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            console.log("✅ OneSignal User ID saved:", userId);
+
+            await firebase.firestore().collection('users').doc('currentDevice').set(subscriptionData, { merge: true });
+            console.log("OneSignal subscription saved:", userId);
           } catch(e) { console.error("Save error:", e); }
         }
 
