@@ -123,8 +123,8 @@ async function sendOneSignalNotification(subscriptionIds, carsList) {
         ar: "🔧 تنبيه صيانة",
       },
       contents: {
-        en: `السيارات التي تحتاج صيانة:\n${carNames}`,
-        ar: `السيارات التي تحتاج صيانة:\n${carNames}`, 
+        en: `السيارات التي تحتاج صيانة:\n${carNames}`, 
+        ar: `السيارات التي تحتاج صيانة:\n${carNames}`,
       },
     }),
   });
