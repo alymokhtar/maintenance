@@ -1,6 +1,12 @@
 name: Daily Maintenance Reminder
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/daily-maintenance-reminder.yml"
+      - "scripts/send-reminders.js"
   schedule:
     # Runs every day at 09:00 UTC.
     - cron: "0 9 * * *"

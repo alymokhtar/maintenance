@@ -108,6 +108,12 @@ async function getActiveSubscriptionIds(db) {
 
 async function sendOneSignalNotification(subscriptionIds, carsList) {
   const carNames = carsList.map((car) => car.name).join(", ");
+  const heading = "🔧 تنبيه صيانة";
+  const content = `السيارات التي تحتاج صيانة:\n${carNames}`;
+
+  console.log(`Notification heading: ${heading}`);
+  console.log(`Notification content: ${content}`);
+
   const response = await fetch("https://api.onesignal.com/notifications", {
     method: "POST",
     headers: {
@@ -119,12 +125,12 @@ async function sendOneSignalNotification(subscriptionIds, carsList) {
       target_channel: "push",
       include_subscription_ids: subscriptionIds,
       headings: {
-        en: "🔧 تنبيه صيانة",
-        ar: "🔧 تنبيه صيانة",
+        en: heading,
+        ar: heading,
       },
       contents: {
-        en: `السيارات التي تحتاج صيانة:\n${carNames}`, 
-        ar: `السيارات التي تحتاج صيانة:\n${carNames}`,
+        en: content,
+        ar: content,
       },
     }),
   });
