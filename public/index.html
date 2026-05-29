@@ -149,64 +149,416 @@
     </script>
     
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background: #eef2f5; margin: 0; padding: 20px; direction: rtl; }
-        .container { max-width: 900px; margin: auto; background: white; border-radius: 28px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 20px 24px 32px; }
-        h1 { color: #00695c; border-right: 5px solid #26a69a; padding-right: 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 0; font-size: 20px; }
-        .car-card { background: #ffffff; border-radius: 20px; padding: 14px 20px; margin: 14px 0; border: 1px solid #e0e7ef; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: 0.2s; }
-        .car-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .car-info { cursor: pointer; flex: 1; }
-        .car-name { font-weight: bold; font-size: 1.2rem; color: #1e2a3e; }
-        .car-plate { color: #2c7a64; font-size: 0.9rem; margin-right: 8px; background: #e6f7ec; padding: 2px 8px; border-radius: 30px; }
-        .car-actions button { background: transparent; border: none; cursor: pointer; font-size: 0.85rem; margin: 0 4px; padding: 6px 12px; border-radius: 30px; transition: 0.2s; }
-        .edit-car { color: #0284c7; background: #e0f2fe; }
-        .delete-car { color: #b91c1c; background: #fee2e2; }
-        .status { margin-top: 10px; font-size: 0.85rem; font-weight: bold; padding: 4px 12px; border-radius: 30px; display: inline-block; }
-        .status-green { background: #c8e6e0; color: #00695c; }
-        .status-red { background: #ffebee; color: #c62828; }
-        .next-date { font-size: 0.8rem; color: #4b5563; margin-top: 6px; }
-        .date-card, .detail-card { background: #f9fafc; border-radius: 20px; padding: 12px 18px; margin: 10px 0; border: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; }
-        .date-card:hover { background: #e6f7ec; transform: translateX(-5px); }
-        button { background: #00695c; color: white; border: none; padding: 8px 18px; border-radius: 30px; cursor: pointer; margin: 5px; font-weight: 500; }
-        button.secondary { background: #64748b; }
-        button.outline { background: white; color: #00695c; border: 1px solid #00695c; }
-        .fab { position: fixed; bottom: 25px; left: 25px; background: #00695c; width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,0.2); transition: 0.2s; z-index: 100; }
-        .fab:hover { transform: scale(1.05); background: #004d40; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; width: 95%; max-width: 700px; border-radius: 32px; padding: 24px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 30px rgba(0,0,0,0.2); }
-        input, textarea { width: 100%; padding: 10px 14px; margin: 8px 0; border-radius: 40px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
-        .item-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 12px 0; flex-wrap: wrap; background: #f8fafc; padding: 8px 12px; border-radius: 50px; }
-        .item-label { flex: 2; font-weight: 500; }
-        .item-price { flex: 1; min-width: 110px; }
-        .item-price input { margin: 0; width: 100%; }
-        .total { font-weight: bold; font-size: 1.3rem; margin-top: 20px; text-align: left; border-top: 2px solid #cbd5e1; padding-top: 12px; }
-        .empty-message { text-align: center; color: #888; padding: 40px; }
-        footer { text-align: center; font-size: 0.7rem; margin-top: 30px; color: #aaa; }
-        .invoice-wrapper { direction: rtl; font-family: 'Tahoma', sans-serif; }
-        .invoice-card { background: white; padding: 25px; border-radius: 16px; border: 1px solid #d1d5db; max-width: 800px; margin: auto; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-        .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #00695c; padding-bottom: 12px; margin-bottom: 20px; }
-        .invoice-title { font-size: 1.8rem; color: #00695c; font-weight: bold; }
-        .invoice-details { margin-bottom: 20px; line-height: 1.6; }
-        .invoice-items { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .invoice-items th, .invoice-items td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
-        .invoice-items th { background: #e6f7ec; color: #00695c; }
-        .total-invoice { text-align: left; font-size: 1.2rem; font-weight: bold; margin-top: 15px; }
-        @media print { body * { visibility: hidden; } .invoice-card, .invoice-card * { visibility: visible; } .invoice-card { position: absolute; top: 0; right: 0; width: 100%; } .no-print { display: none; } }
-        .install-banner { background: #00695c; color: white; padding: 10px; text-align: center; border-radius: 40px; margin-bottom: 15px; display: none; cursor: pointer; }
-        .notification-banner { display: none; position: fixed; right: 16px; left: 16px; bottom: 92px; z-index: 2000; text-align: center; }
-        .notification-banner button { width: 100%; max-width: 360px; background: #0f766e; box-shadow: 0 8px 18px rgba(0,0,0,0.18); }
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #eef2f5;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            padding: 20px 24px 32px;
+        }
+
+        h1 {
+            color: #00695c;
+            border-right: 5px solid #26a69a;
+            padding-right: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        .car-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 14px 20px;
+            margin: 14px 0;
+            border: 1px solid #e0e7ef;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+            transition: 0.2s;
+        }
+
+        .car-card:hover {
+            border-color: #a7d7ce;
+            box-shadow: 0 6px 16px rgba(0, 105, 92, 0.08);
+        }
+
+        .car-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .car-info {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .car-name {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #1e2a3e;
+        }
+
+        .car-plate {
+            color: #2c7a64;
+            font-size: 0.9rem;
+            margin-right: 8px;
+            background: #e6f7ec;
+            padding: 2px 8px;
+            border-radius: 30px;
+        }
+
+        .car-actions button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin: 0 4px;
+            padding: 6px 12px;
+            border-radius: 30px;
+            transition: 0.2s;
+        }
+
+        .edit-car {
+            color: #0284c7;
+            background: #e0f2fe;
+        }
+
+        .delete-car {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 30px;
+            display: inline-block;
+        }
+
+        .status-green {
+            background: #c8e6e0;
+            color: #00695c;
+        }
+
+        .status-red {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .next-date {
+            font-size: 0.8rem;
+            color: #4b5563;
+            margin-top: 6px;
+        }
+
+        .date-card,
+        .detail-card {
+            background: #f9fafc;
+            border-radius: 20px;
+            padding: 12px 18px;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .date-card:hover {
+            background: #e6f7ec;
+            transform: translateX(-5px);
+        }
+
+        button {
+            background: #00695c;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #e6f7ec;
+        }
+
+        button.secondary {
+            background: #64748b;
+        }
+
+        button.outline {
+            background: white;
+            color: #00695c;
+            border: 1px solid #00695c;
+        }
+
+        button.outline:hover {
+            background: #e6f7ec;
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            background: #00695c;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+            transition: 0.2s;
+            z-index: 100;
+        }
+
+        .fab:hover {
+            transform: scale(1.05);
+            background: #004d40;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            width: 95%;
+            max-width: 700px;
+            border-radius: 32px;
+            padding: 24px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            margin: 8px 0;
+            border-radius: 40px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.9rem;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: #26a69a;
+            box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.12);
+        }
+
+        .item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 50px;
+        }
+
+        .item-label {
+            flex: 2;
+            font-weight: 500;
+        }
+
+        .item-price {
+            flex: 1;
+            min-width: 110px;
+        }
+
+        .item-price input {
+            margin: 0;
+            width: 100%;
+        }
+
+        .total {
+            font-weight: bold;
+            font-size: 1.3rem;
+            margin-top: 20px;
+            text-align: left;
+            border-top: 2px solid #cbd5e1;
+            padding-top: 12px;
+        }
+
+        .empty-message {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 30px;
+            color: #aaa;
+        }
+
+        .invoice-wrapper {
+            direction: rtl;
+            font-family: 'Tahoma', sans-serif;
+        }
+
+        .invoice-card {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid #d1d5db;
+            max-width: 800px;
+            margin: auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #00695c;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .invoice-title {
+            font-size: 1.8rem;
+            color: #00695c;
+            font-weight: bold;
+        }
+
+        .invoice-details {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .invoice-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .invoice-items th,
+        .invoice-items td {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .invoice-items th {
+            background: #e6f7ec;
+            color: #00695c;
+        }
+
+        .invoice-items .label-cell {
+            font-weight: bold;
+            background: #f8fafc;
+            color: #1e2a3e;
+            width: 35%;
+        }
+
+        .total-invoice {
+            text-align: left;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .install-banner {
+            background: #00695c;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 40px;
+            margin-bottom: 15px;
+            display: none;
+            cursor: pointer;
+        }
+
+        .notification-banner {
+            display: none;
+            position: fixed;
+            right: 16px;
+            left: 16px;
+            bottom: 92px;
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .notification-banner button {
+            width: 100%;
+            max-width: 360px;
+            background: #0f766e;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .invoice-card,
+            .invoice-card * {
+                visibility: visible;
+            }
+
+            .invoice-card {
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 100%;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="container" id="app"></div>
-<div class="fab" id="fabBtn">➕</div>
-<div id="installBanner" class="install-banner">📲 تثبيت التطبيق على هاتفك</div>
+    <div class="container" id="app"></div>
+    <div class="fab" id="fabBtn">➕</div>
+    <div id="installBanner" class="install-banner">📲 تثبيت التطبيق على هاتفك</div>
 
-<div id="notificationBanner" class="notification-banner">
-    <button id="enableNotificationsBtn">تفعيل إشعارات الهاتف</button>
-</div>
+    <div id="notificationBanner" class="notification-banner">
+        <button id="enableNotificationsBtn">تفعيل إشعارات الهاتف</button>
+    </div>
 
-<script>
+    <script>
     // ========== PWA installation ==========
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -349,7 +701,7 @@
     }
 
     function showAddCarModal() {
-        const modalHtml = `<div class="modal" id="carModal"><div class="modal-content"><h3>➕ إضافة سيارة</h3><label>اسم المالك</label><input id="ownerName" placeholder="مثال: Dro Dadi"><label>رقم اللوحة</label><input id="plate" placeholder="مثال: 3909AC06"><div style="display:flex; gap:10px; margin-top:20px;"><button id="saveCar">حفظ</button><button id="cancelCar" class="secondary">إلغاء</button></div></div></div>`;
+        const modalHtml = `<div class="modal" id="carModal"><div class="modal-content"><h3>➕ إضافة سيارة</h3><label>اسم السائق</label><input id="ownerName" placeholder="مثال: Dro Dadi"><label>رقم اللوحة</label><input id="plate" placeholder="مثال: 3909AC06"><div style="display:flex; gap:10px; margin-top:20px;"><button id="saveCar">حفظ</button><button id="cancelCar" class="secondary">إلغاء</button></div></div></div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = document.getElementById('carModal');
         modal.style.display = 'flex';
@@ -367,7 +719,7 @@
     async function openEditCarModal(carId) {
         const carDoc = await db.collection('cars').doc(carId).get();
         const car = carDoc.data();
-        const modalHtml = `<div class="modal" id="editCarModal"><div class="modal-content"><h3>✏️ تعديل السيارة</h3><label>اسم المالك</label><input id="ownerName" value="${escapeHtml(car.ownerName)}"><label>رقم اللوحة</label><input id="plate" value="${escapeHtml(car.plate)}"><div style="display:flex; gap:10px; margin-top:20px;"><button id="updateCar">تحديث</button><button id="cancelEdit" class="secondary">إلغاء</button></div></div></div>`;
+        const modalHtml = `<div class="modal" id="editCarModal"><div class="modal-content"><h3>✏️ تعديل السيارة</h3><label>اسم السائق</label><input id="ownerName" value="${escapeHtml(car.ownerName)}"><label>رقم اللوحة</label><input id="plate" value="${escapeHtml(car.plate)}"><div style="display:flex; gap:10px; margin-top:20px;"><button id="updateCar">تحديث</button><button id="cancelEdit" class="secondary">إلغاء</button></div></div></div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = document.getElementById('editCarModal');
         modal.style.display = 'flex';
@@ -488,22 +840,63 @@
         const invoiceHtml = `
             <div class="invoice-wrapper">
                 <div class="invoice-card">
-                    <div class="invoice-header"><div class="invoice-title">فاتورة صيانة</div><div></div></div>
-                    <div class="invoice-details">
-                        <div><strong>السيارة:</strong> ${escapeHtml(carName)} (${escapeHtml(plate)})</div>
-                        <div><strong>تاريخ الصيانة:</strong> ${escapeHtml(m.date)}</div>
-                        <div><strong>تاريخ الصيانة القادمة:</strong> ${nextDateStr}</div>
-                        <div><strong>الكيلومترات:</strong> ${m.km || '—'} كم</div>
-                        <div><strong>الكيلومترات القادمة:</strong> ${m.nextKm || '—'} كم</div>
+                    <div class="invoice-header">
+                        <div class="invoice-title">فاتورة صيانة</div>
+                        <div>By Aly Mokhtar</div>
                     </div>
+
                     <table class="invoice-items">
-                        <thead><tr><th>العملية</th><th>السعر (MRU)</th></table></thead>
-                        <tbody>${doneItems.map(it => `<tr><td style="text-align:center">${escapeHtml(it.label)}</td><td style="text-align:center">${it.price} MRU</td>`).join('')}
-                        <tr style="font-weight:bold; background:#f1f5f9;"><td style="text-align:center">الإجمالي</td><td style="text-align:center">${total} MRU</td></tr>
+                        <thead>
+                            <tr>
+                                <th colspan="2">تفاصيل السيارة والصيانة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="label-cell">السيارة</td>
+                                <td>${escapeHtml(carName)} (${escapeHtml(plate)})</td>
+                            </tr>
+                            <tr>
+                                <td class="label-cell">تاريخ الصيانة</td>
+                                <td>${escapeHtml(m.date)}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-cell">تاريخ الصيانة القادمة</td>
+                                <td>${nextDateStr}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-cell">الكيلومترات</td>
+                                <td>${m.km || '—'} كم</td>
+                            </tr>
+                            <tr>
+                                <td class="label-cell">الكيلومترات القادمة</td>
+                                <td>${m.nextKm || '—'} كم</td>
+                            </tr>
                         </tbody>
                     </table>
+
+                    <table class="invoice-items">
+                        <thead>
+                            <tr>
+                                <th>العملية</th>
+                                <th>السعر (MRU)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${doneItems.map(it => `
+                                <tr>
+                                    <td>${escapeHtml(it.label)}</td>
+                                    <td>${it.price} MRU</td>
+                                </tr>
+                            `).join('')}
+                            <tr style="font-weight:bold; background:#f1f5f9;">
+                                <td>الإجمالي</td>
+                                <td>${total} MRU</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
                     ${m.notes ? `<div><strong>ملاحظات:</strong> ${escapeHtml(m.notes)}</div>` : ''}
-                    <div style="margin-top:20px; text-align:center;">By Aly Mokhtar</div>
                 </div>
             </div>
         `;
@@ -678,19 +1071,7 @@
                 showMaintenanceDetail(existing.id);
             } else {
                 maintenanceData.createdAt = new Date();
-                const maintenanceRef = await db.collection('maintenances').add(maintenanceData);
-                const carDoc = await db.collection('cars').doc(carId).get();
-                const car = carDoc.data() || {};
-                await db.collection('maintenanceNotifications').add({
-                    type: 'maintenance_created',
-                    status: 'pending',
-                    carId: carId,
-                    maintenanceId: maintenanceRef.id,
-                    ownerName: car.ownerName || '',
-                    plate: car.plate || '',
-                    maintenanceDate: date,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                await db.collection('maintenances').add(maintenanceData);
                 delete datesCache[carId];
                 modalDiv.remove();
                 showDates(carId);
@@ -701,6 +1082,6 @@
 
     fab.onclick = () => { if(currentScreen === 'dates' && selectedCarId) openMaintenanceModal(selectedCarId, null); };
     window.onload = showCars;
-</script>
+    </script>
 </body>
 </html>

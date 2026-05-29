@@ -119,12 +119,10 @@ async function sendOneSignalNotification(subscriptionIds, carsList) {
       target_channel: "push",
       include_subscription_ids: subscriptionIds,
       headings: {
-        en: "Daily maintenance reminder",
-        ar: "تنبيه صيانة يومي",
+        ar: "🔧 تنبيه صيانة",
       },
       contents: {
-        en: `The following car(s) need maintenance: ${carNames}`,
-        ar: `السيارات التالية تحتاج صيانة: ${carNames}`,
+        ar: `السيارات التي تحتاج صيانة:\n${carNames}`,
       },
     }),
   });
