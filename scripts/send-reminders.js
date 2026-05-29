@@ -124,7 +124,7 @@ async function sendOneSignalNotification(subscriptionIds, carsList) {
       },
       contents: {
         en: `السيارات التي تحتاج صيانة:\n${carNames}`,
-        ar: `السيارات التي تحتاج صيانة:\n${carNames}`,
+        ar: `السيارات التي تحتاج صيانة:\n${carNames}`, 
       },
     }),
   });
