@@ -41,6 +41,10 @@ function getNextDueDate(dateStr) {
   return date;
 }
 
+function isValidOneSignalSubscriptionId(subscriptionId) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(subscriptionId || "");
+}
+
 async function getLatestMaintenance(carId, db) {
   const snapshot = await db.collection("maintenances").where("carId", "==", carId).get();
   let latest = null;
@@ -91,8 +95,10 @@ async function getActiveSubscriptionIds(db) {
   for (const doc of snapshot.docs) {
     const data = doc.data() || {};
     const subscriptionId = data.oneSignalSubscriptionId || data.oneSignalId || doc.id;
-    if (subscriptionId && data.oneSignalOptedIn !== false) {
+    if (subscriptionId && data.oneSignalOptedIn !== false && isValidOneSignalSubscriptionId(subscriptionId)) {
       subscriptionIds.add(subscriptionId);
+    } else if (subscriptionId) {
+      console.log(`Skipping invalid OneSignal subscription ID: ${subscriptionId}`);
     }
   }
 
@@ -100,7 +106,11 @@ async function getActiveSubscriptionIds(db) {
     const userDoc = await db.collection("users").doc("currentDevice").get();
     const userData = userDoc.data() || {};
     const subscriptionId = userData.oneSignalSubscriptionId || userData.oneSignalId;
-    if (subscriptionId) subscriptionIds.add(subscriptionId);
+    if (isValidOneSignalSubscriptionId(subscriptionId)) {
+      subscriptionIds.add(subscriptionId);
+    } else if (subscriptionId) {
+      console.log(`Skipping invalid currentDevice subscription ID: ${subscriptionId}`);
+    }
   }
 
   return [...subscriptionIds];

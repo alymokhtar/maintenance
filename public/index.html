@@ -28,6 +28,12 @@
 
         async function saveUserId(userId) {
           if (!userId || !firebase || !firebase.firestore) return;
+          const validSubscriptionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+          if (!validSubscriptionId) {
+            console.log("Waiting for a valid OneSignal subscription ID:", userId);
+            return;
+          }
+
           try {
             const subscriptionData = {
               oneSignalSubscriptionId: userId,
