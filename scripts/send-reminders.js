@@ -119,9 +119,11 @@ async function sendOneSignalNotification(subscriptionIds, carsList) {
       target_channel: "push",
       include_subscription_ids: subscriptionIds,
       headings: {
+        en: "🔧 تنبيه صيانة",
         ar: "🔧 تنبيه صيانة",
       },
       contents: {
+        en: `السيارات التي تحتاج صيانة:\n${carNames}`,
         ar: `السيارات التي تحتاج صيانة:\n${carNames}`,
       },
     }),
