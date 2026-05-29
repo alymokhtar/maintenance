@@ -1,7 +1,8 @@
-const CACHE_NAME = 'car-maintenance-v5';
+const CACHE_NAME = 'car-maintenance-v6';
 const urlsToCache = [
   './',
   './index.html',
+  './icons/icon-512.png',
   'https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js',
   'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
