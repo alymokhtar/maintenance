@@ -112,7 +112,6 @@
           }
         });
 
-        // الطريقة الصحيحة للحصول على userId في v16
         try {
           setupNotificationButton();
           if (isIosDevice() && !isStandaloneApp()) {
@@ -128,7 +127,6 @@
           if (OneSignal.Notifications.permission === true) {
             await OneSignal.User.PushSubscription.optIn();
           }
-          // انتظر قليلاً حتى يكتمل التسجيل
           setTimeout(async () => {
             const subscription = {
               subscribed: OneSignal.User.PushSubscription.optedIn,
@@ -257,8 +255,23 @@
             background: #fee2e2;
         }
 
+        .postpone-car {
+            color: #b45309;
+            background: #fef3c7;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 30px;
+            transition: 0.2s;
+            margin-right: 8px;
+        }
+
+        .postpone-car:hover {
+            background: #fde68a;
+        }
+
         .status {
-            margin-top: 10px;
             font-size: 0.85rem;
             font-weight: bold;
             padding: 4px 12px;
@@ -608,7 +621,6 @@
     </div>
 
     <script>
-    // ========== PWA installation ==========
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -623,7 +635,6 @@
         };
     });
     
-    // ========== Firebase Config ==========
     const firebaseConfig = {
         apiKey: "AIzaSyAwumtf7490H80FTXYT04vVbmhpiKeoM",
         authDomain: "maintenance-7fecf.firebaseapp.com",
@@ -660,12 +671,20 @@
         return next;
     }
 
+    function normalizeDate(date) {
+        if (!date) return null;
+        if (typeof date.toDate === 'function') return date.toDate();
+        if (date instanceof Date) return date;
+        const parsed = new Date(date);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
     function escapeHtml(str) {
         if(!str) return '';
         return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
     }
 
-    async function getLastMaintenanceAndNext(carId) {
+    async function getLastMaintenanceAndNext(carId, car = {}) {
         const snap = await db.collection('maintenances').where('carId', '==', carId).get();
         let lastDate = null;
         snap.forEach(doc => {
@@ -673,11 +692,14 @@
             if (!lastDate || d > lastDate) lastDate = d;
         });
         if (!lastDate) return { lastDate: null, nextDate: null, need: false };
-        const nextDate = getNextMaintenanceDate(lastDate);
+        const baseNextDate = getNextMaintenanceDate(lastDate);
+        const postponedUntil = normalizeDate(car.postponedUntil);
+        const nextDate = postponedUntil && postponedUntil > baseNextDate ? postponedUntil : baseNextDate;
         const today = new Date();
         today.setHours(0,0,0,0);
+        nextDate.setHours(0,0,0,0);
         const need = today >= nextDate;
-        return { lastDate, nextDate, need };
+        return { lastDate, nextDate, need, postponedUntil };
     }
 
     async function showCars() {
@@ -694,8 +716,8 @@
             let carsWithStatus = [];
             for (const doc of snapshot.docs) {
                 const car = doc.data();
-                const { lastDate, nextDate, need } = await getLastMaintenanceAndNext(doc.id);
-                carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate });
+                const { lastDate, nextDate, need, postponedUntil } = await getLastMaintenanceAndNext(doc.id, car);
+                carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate, postponedUntil });
             }
             carsWithStatus.sort((a,b) => {
                 if (a.need && !b.need) return -1;
@@ -707,7 +729,9 @@
                 const statusText = car.need ? "تحتاج صيانة" : (car.lastDate ? "لا تحتاج صيانة" : "لا توجد صيانة");
                 const statusClass = car.need ? "status-red" : "status-green";
                 const plateClass = car.need ? "car-plate needs-maintenance" : "car-plate";
-                const nextDateText = car.nextDate ? `📅 الصيانة القادمة: ${formatDate(car.nextDate)}` : "📅 لا توجد صيانة مسجلة";
+                const nextDateLabel = car.postponedUntil && !car.need ? "📅 مؤجلة حتى" : "📅 الصيانة القادمة";
+                const nextDateText = car.nextDate ? `${nextDateLabel}: ${formatDate(car.nextDate)}` : "📅 لا توجد صيانة مسجلة";
+                const postponeBtn = car.need ? `<button class="postpone-car" data-id="${car.id}">تأجيل</button>` : '';
                 html += `
                     <div class="car-card" data-id="${car.id}">
                         <div class="car-header">
@@ -719,7 +743,10 @@
                                 <button class="delete-car" data-id="${car.id}"> حذف</button>
                             </div>
                         </div>
-                        <div><span class="status ${statusClass}">${statusText}</span></div>
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                            <span class="status ${statusClass}">${statusText}</span>
+                            ${postponeBtn}
+                        </div>
                         <div class="next-date">${nextDateText}</div>
                     </div>
                 `;
@@ -727,6 +754,9 @@
             listDiv.innerHTML = html;
             document.querySelectorAll('.car-info').forEach(el => {
                 el.addEventListener('click', () => showDates(el.dataset.id));
+            });
+            document.querySelectorAll('.postpone-car').forEach(btn => {
+                btn.addEventListener('click', (e) => { e.stopPropagation(); postponeCar(btn.dataset.id); });
             });
             document.querySelectorAll('.edit-car').forEach(btn => {
                 btn.addEventListener('click', (e) => { e.stopPropagation(); openEditCarModal(btn.dataset.id); });
@@ -750,6 +780,31 @@
         } catch(e) { console.error(e); listDiv.innerHTML = '<div class="empty-message">❌ خطأ في الاتصال بقاعدة البيانات</div>'; }
     }
 
+    async function postponeCar(carId) {
+        const days = prompt("عدد أيام التأجيل:", "7");
+        if (!days || isNaN(days) || parseInt(days) <= 0) {
+            if (days !== null) alert("الرجاء إدخال عدد أيام صحيح أكبر من 0");
+            return;
+        }
+        const postponeDays = parseInt(days);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const postponedUntil = new Date(today);
+        postponedUntil.setDate(postponedUntil.getDate() + postponeDays);
+        try {
+            await db.collection('cars').doc(carId).update({
+                postponeDays: postponeDays,
+                postponedUntil: postponedUntil,
+                updatedAt: new Date()
+            });
+            delete datesCache[carId];
+            showCars();
+        } catch(e) {
+            console.error("Error postponing:", e);
+            alert("❌ خطأ في حفظ التأجيل");
+        }
+    }
+
     function showAddCarModal() {
         const modalHtml = `<div class="modal" id="carModal"><div class="modal-content"><h3>➕ إضافة سيارة</h3><label>اسم السائق</label><input id="ownerName" placeholder="مثال: Dro Dadi"><label>رقم اللوحة</label><input id="plate" placeholder="مثال: 3909AC06"><div style="display:flex; gap:10px; margin-top:20px;"><button id="saveCar">حفظ</button><button id="cancelCar" class="secondary">إلغاء</button></div></div></div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
@@ -759,7 +814,7 @@
             const owner = document.getElementById('ownerName').value.trim();
             const plate = document.getElementById('plate').value.trim();
             if(!owner || !plate) { alert("الرجاء إدخال جميع البيانات"); return; }
-            await db.collection('cars').add({ ownerName: owner, plate: plate, createdAt: new Date() });
+            await db.collection('cars').add({ ownerName: owner, plate: plate, postponeDays: 0, createdAt: new Date() });
             modal.remove();
             showCars();
         };
@@ -1122,6 +1177,11 @@
             } else {
                 maintenanceData.createdAt = new Date();
                 await db.collection('maintenances').add(maintenanceData);
+                await db.collection('cars').doc(carId).update({
+                    postponeDays: 0,
+                    postponedUntil: null,
+                    updatedAt: new Date()
+                });
                 delete datesCache[carId];
                 modalDiv.remove();
                 showDates(carId);

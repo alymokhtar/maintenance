@@ -41,6 +41,21 @@ function getNextDueDate(dateStr) {
   return date;
 }
 
+function parseFirestoreDate(value) {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  if (typeof value._seconds === "number") return new Date(value._seconds * 1000);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getEffectiveDueDate(baseDueDate, postponedUntil) {
+  const postponedDate = parseFirestoreDate(postponedUntil);
+  if (!postponedDate) return baseDueDate;
+  postponedDate.setUTCHours(0, 0, 0, 0);
+  return postponedDate > baseDueDate ? postponedDate : baseDueDate;
+}
+
 function isValidOneSignalSubscriptionId(subscriptionId) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(subscriptionId || "");
 }
@@ -74,7 +89,10 @@ async function getCarsNeedingMaintenance(db) {
     const latestMaintenance = await getLatestMaintenance(carDoc.id, db);
     if (!latestMaintenance) continue;
 
-    const dueDate = getNextDueDate(latestMaintenance.date);
+    const baseDueDate = getNextDueDate(latestMaintenance.date);
+    if (!baseDueDate) continue;
+
+    const dueDate = getEffectiveDueDate(baseDueDate, car.postponedUntil);
     if (dueDate && dueDate <= today) {
       carsNeeding.push({
         id: carDoc.id,
