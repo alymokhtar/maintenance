@@ -724,7 +724,10 @@
             carsWithStatus.sort((a,b) => {
                 if (a.need && !b.need) return -1;
                 if (!a.need && b.need) return 1;
-                return a.ownerName.localeCompare(b.ownerName);
+                const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+                const bTime = b.nextDate ? b.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+                if (aTime !== bTime) return aTime - bTime;
+                return (a.ownerName || '').localeCompare(b.ownerName || '');
             });
             let html = '';
             for (const car of carsWithStatus) {
