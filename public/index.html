@@ -706,7 +706,7 @@
     async function showCars() {
         currentScreen = 'cars';
         fab.style.display = 'none';
-        app.innerHTML = `<h1>🚗 سياراتي <button id="addCarBtn" class="outline">➕ سيارة جديدة</button></h1><div id="list">جاري التحميل...</div><footer>اختر سيارة لعرض صيانتها</footer>`;
+        app.innerHTML = `<h1>موعد الصيانه <button id="addCarBtn" class="outline">➕ سيارة جديدة</button></h1><div id="list">جاري التحميل...</div><footer>اختر سيارة لعرض صيانتها</footer>`;
         const listDiv = document.getElementById('list');
         try {
             const snapshot = await db.collection('cars').orderBy('ownerName').get();
