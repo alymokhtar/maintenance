@@ -649,6 +649,7 @@
     let currentScreen = 'cars';
     let selectedCarId = null;
     let datesCache = {};
+    let carsCache = {};
 
     const app = document.getElementById('app');
     const fab = document.getElementById('fabBtn');
@@ -716,6 +717,7 @@
             let carsWithStatus = [];
             for (const doc of snapshot.docs) {
                 const car = doc.data();
+                carsCache[doc.id] = car;
                 const { lastDate, nextDate, need, postponedUntil } = await getLastMaintenanceAndNext(doc.id, car);
                 carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate, postponedUntil });
             }
@@ -771,6 +773,7 @@
                         maints.forEach(doc => batch.delete(doc.ref));
                         await batch.commit();
                         await db.collection('cars').doc(carId).delete();
+                        delete carsCache[carId];
                         delete datesCache[carId];
                         showCars();
                     }
@@ -833,6 +836,7 @@
             const plate = document.getElementById('plate').value.trim();
             if(!owner || !plate) { alert("الرجاء إدخال البيانات"); return; }
             await db.collection('cars').doc(carId).update({ ownerName: owner, plate: plate });
+            carsCache[carId] = { ...(carsCache[carId] || {}), ownerName: owner, plate: plate };
             modal.remove();
             showCars();
         };
@@ -843,8 +847,12 @@
         selectedCarId = carId;
         currentScreen = 'dates';
         fab.style.display = 'flex';
-        const carDoc = await db.collection('cars').doc(carId).get();
-        const car = carDoc.data();
+        let car = carsCache[carId];
+        if (!car) {
+            const carDoc = await db.collection('cars').doc(carId).get();
+            car = carDoc.data() || {};
+            carsCache[carId] = car;
+        }
         app.innerHTML = `<h1>📅 صيانات: ${escapeHtml(car.ownerName)} (${escapeHtml(car.plate)}) <button id="backBtn" class="secondary">🔙 رجوع</button></h1><div id="datesList">جاري التحميل...</div><footer>اختر تاريخاً للتفاصيل</footer>`;
         const listDiv = document.getElementById('datesList');
         if (useCache && datesCache[carId]) {
@@ -882,9 +890,14 @@
         const doc = await db.collection('maintenances').doc(mid).get();
         if(!doc.exists) return;
         const m = doc.data();
-        const carDoc = await db.collection('cars').doc(m.carId).get();
-        const carName = carDoc.data()?.ownerName || '';
-        const plate = carDoc.data()?.plate || '';
+        let car = carsCache[m.carId];
+        if (!car) {
+            const carDoc = await db.collection('cars').doc(m.carId).get();
+            car = carDoc.data() || {};
+            carsCache[m.carId] = car;
+        }
+        const carName = car.ownerName || '';
+        const plate = car.plate || '';
         
         const currentDate = parseDate(m.date);
         const nextDate = getNextMaintenanceDate(currentDate);
@@ -1012,9 +1025,12 @@
     }
 
     async function generateAllInvoices(carId, carName, plate) {
-        const snapshot = await db.collection('maintenances').where('carId', '==', carId).get();
-        let allMaintenances = [];
-        snapshot.forEach(doc => allMaintenances.push({ id: doc.id, ...doc.data() }));
+        let allMaintenances = datesCache[carId] ? [...datesCache[carId]] : [];
+        if (!allMaintenances.length) {
+            const snapshot = await db.collection('maintenances').where('carId', '==', carId).get();
+            snapshot.forEach(doc => allMaintenances.push({ id: doc.id, ...doc.data() }));
+            datesCache[carId] = allMaintenances;
+        }
         if(allMaintenances.length === 0) { alert("لا توجد صيانات لهذه السيارة"); return; }
         allMaintenances.sort((a,b) => b.date.localeCompare(a.date));
         let allHtml = `<div class="invoice-wrapper"><div class="invoice-card"><div class="invoice-header"><div class="invoice-title">تقرير جميع صيانات السيارة</div><div>${escapeHtml(carName)} (${escapeHtml(plate)})</div></div>`;
