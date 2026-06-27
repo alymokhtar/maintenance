@@ -201,6 +201,16 @@
             box-shadow: 0 6px 16px rgba(0, 105, 92, 0.08);
         }
 
+        /* حالة مؤجلة */
+        .car-card.postponed {
+            background: #fef9c3;
+            border-color: #facc15;
+        }
+
+        .car-card.postponed .car-name {
+            color: #b45309;
+        }
+
         .car-header {
             display: flex;
             justify-content: space-between;
@@ -232,6 +242,11 @@
         .car-plate.needs-maintenance {
             color: #c62828;
             background: #ffebee;
+        }
+
+        .car-plate.postponed-plate {
+            color: #b45309;
+            background: #fef3c7;
         }
 
         .car-actions button {
@@ -287,6 +302,11 @@
         .status-red {
             background: #ffebee;
             color: #c62828;
+        }
+
+        .status-yellow {
+            background: #fef3c7;
+            color: #b45309;
         }
 
         .next-date {
@@ -719,9 +739,15 @@
                 const car = doc.data();
                 carsCache[doc.id] = car;
                 const { lastDate, nextDate, need, postponedUntil } = await getLastMaintenanceAndNext(doc.id, car);
-                carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate, postponedUntil });
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const isPostponed = postponedUntil && postponedUntil > today;
+                carsWithStatus.push({ id: doc.id, ownerName: car.ownerName, plate: car.plate, need, nextDate, lastDate, postponedUntil, isPostponed });
             }
             carsWithStatus.sort((a,b) => {
+                // ترتيب: مؤجلة أولاً، ثم المحتاجة، ثم الباقي
+                if (a.isPostponed && !b.isPostponed) return -1;
+                if (!a.isPostponed && b.isPostponed) return 1;
                 if (a.need && !b.need) return -1;
                 if (!a.need && b.need) return 1;
                 const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
@@ -731,14 +757,26 @@
             });
             let html = '';
             for (const car of carsWithStatus) {
-                const statusText = car.need ? "تحتاج صيانة" : (car.lastDate ? "لا تحتاج صيانة" : "لا توجد صيانة");
-                const statusClass = car.need ? "status-red" : "status-green";
-                const plateClass = car.need ? "car-plate needs-maintenance" : "car-plate";
-                const nextDateLabel = car.postponedUntil && !car.need ? "📅 مؤجلة حتى" : "📅 الصيانة القادمة";
+                let statusText, statusClass, plateClass, cardClass = '';
+                if (car.isPostponed) {
+                    statusText = "📅 مؤجلة";
+                    statusClass = "status-yellow";
+                    plateClass = "car-plate postponed-plate";
+                    cardClass = "postponed";
+                } else if (car.need) {
+                    statusText = "تحتاج صيانة";
+                    statusClass = "status-red";
+                    plateClass = "car-plate needs-maintenance";
+                } else {
+                    statusText = car.lastDate ? "لا تحتاج صيانة" : "لا توجد صيانة";
+                    statusClass = "status-green";
+                    plateClass = "car-plate";
+                }
+                const nextDateLabel = car.isPostponed ? "📅 مؤجلة حتى" : (car.postponedUntil && !car.need ? "📅 مؤجلة حتى" : "📅 الصيانة القادمة");
                 const nextDateText = car.nextDate ? `${nextDateLabel}: ${formatDate(car.nextDate)}` : "📅 لا توجد صيانة مسجلة";
-                const postponeBtn = car.need ? `<button class="postpone-car" data-id="${car.id}">تأجيل</button>` : '';
+                const postponeBtn = car.need && !car.isPostponed ? `<button class="postpone-car" data-id="${car.id}">تأجيل</button>` : '';
                 html += `
-                    <div class="car-card" data-id="${car.id}">
+                    <div class="car-card ${cardClass}" data-id="${car.id}">
                         <div class="car-header">
                             <div class="car-info" data-id="${car.id}">
                                 <span class="car-name">${escapeHtml(car.ownerName)} <span class="${plateClass}">${escapeHtml(car.plate)}</span></span>
@@ -1196,6 +1234,7 @@
             } else {
                 maintenanceData.createdAt = new Date();
                 await db.collection('maintenances').add(maintenanceData);
+                // إلغاء التأجيل بعد إجراء صيانة جديدة
                 await db.collection('cars').doc(carId).update({
                     postponeDays: 0,
                     postponedUntil: null,
