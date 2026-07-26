@@ -108,3 +108,7 @@ notificationSubscriptions
 - أو توجد اشتراكات في `notificationSubscriptions`.
 - توجد سيارة آخر صيانة لها مر عليها 35 يومًا أو أكثر.
 - OneSignal يقبل إرسال الإشعار لهذا الاشتراك.
+----------------------------------------------------------
+
+
+firebase deploy -- only hosting  
